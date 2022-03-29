@@ -1,6 +1,8 @@
 import React, {useState} from 'react'
 import {createUserWithEmailAndPassword} from "firebase/auth"
-import {auth} from "../firebase-config"
+import {auth, db} from "../firebase-config"
+import {setDoc, doc, Timestamp} from "firebase/firestore"
+import {useNavigate} from "react-router-dom"
 const Register = () => {
     const [data, setData] = useState({
         name: "",
@@ -9,6 +11,7 @@ const Register = () => {
         error: null,
         loading: false,
     });
+    let navigate = useNavigate()
     const {name, email, password, error, loading} = data;
 
     const handleChange = (e) =>{
@@ -22,9 +25,26 @@ const Register = () => {
             setData({...data, error:"All fields are required"})
         }
         try{
-            const result = await createUserWithEmailAndPassword(auth, email, password)
-            console.log(result.user);
-        }catch(err){}
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            await setDoc(doc(db, 'users', result.user.uid ),{
+                uid: result.user.uid,
+                name,
+                email,
+                createdAt: Timestamp.fromDate(new Date()),
+                isOnline: true,
+
+            });
+            setData({
+                name: "",
+                email: "",
+                password: "",
+                error: null,
+                loading: false,
+            })
+            navigate("/");
+        }catch(err){
+            setData({...data, error: err.message, loading:false})
+        }
     }
     return (
         <div>
@@ -43,7 +63,9 @@ const Register = () => {
                     <input type="password" name="password" value={password} onChange={handleChange}/>
                 </div>
                 {error ? <p>{error}</p>: null}
-                <button type="submit">Register</button>
+                <button type="submit" disabled={loading}>
+                    {loading? 'creating...' : 'Register'}
+                    </button>
             </form>
         </div>
     )
